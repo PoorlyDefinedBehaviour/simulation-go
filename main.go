@@ -20,10 +20,10 @@ func main() {
 
 	networkConfig := NetworkConfig{
 		PathClogProbability:      0.05,
-		PathUnclogProbability:    0.50,
 		MessageReplayProbability: 0.05,
 		DropMessageProbability:   0.05,
-		MaxMessageDelay:          100,
+		MaxNetworkPathClogTicks:  100,
+		MaxMessageDelayTicks:     100,
 	}
 
 	replicas := make([]*Replica, 0, numReplicas)

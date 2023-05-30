@@ -4,10 +4,10 @@ import "fmt"
 
 type NetworkConfig struct {
 	PathClogProbability      float64
-	PathUnclogProbability    float64
 	MessageReplayProbability float64
 	DropMessageProbability   float64
-	MaxMessageDelay          uint64
+	MaxNetworkPathClogTicks  uint64
+	MaxMessageDelayTicks     uint64
 }
 
 type Network struct {
@@ -27,16 +27,16 @@ type Network struct {
 }
 
 type NetworkPath struct {
-	FromReplicaID ReplicaID
-	ToReplicaID   ReplicaID
-	Reachable     bool
+	FromReplicaID          ReplicaID
+	ToReplicaID            ReplicaID
+	MakeReachableAfterTick uint64
 }
 
 func newNetworkPath(fromReplicaID, toReplicaID ReplicaID) NetworkPath {
 	return NetworkPath{
-		FromReplicaID: fromReplicaID,
-		ToReplicaID:   toReplicaID,
-		Reachable:     true,
+		FromReplicaID:          fromReplicaID,
+		ToReplicaID:            toReplicaID,
+		MakeReachableAfterTick: 0,
 	}
 }
 
@@ -87,7 +87,7 @@ func (network *Network) send(fromReplicaID ReplicaID, message Message) {
 }
 
 func (network *Network) randomDelay() uint64 {
-	return network.ticks + network.rand.genBetween(0, network.config.MaxMessageDelay)
+	return network.ticks + network.rand.genBetween(0, network.config.MaxMessageDelayTicks)
 }
 
 func (network *Network) tick() {
@@ -97,12 +97,7 @@ func (network *Network) tick() {
 	for i := range network.networkPaths {
 		shouldMakeUnreachable := network.rand.genBool(network.config.PathClogProbability)
 		if shouldMakeUnreachable {
-			network.networkPaths[i].Reachable = false
-		}
-
-		shouldMakeReachable := network.rand.genBool(network.config.PathUnclogProbability)
-		if shouldMakeReachable {
-			network.networkPaths[i].Reachable = true
+			network.networkPaths[i].MakeReachableAfterTick = network.rand.genBetween(0, network.config.MaxNetworkPathClogTicks)
 		}
 	}
 
@@ -116,7 +111,7 @@ func (network *Network) tick() {
 		}
 
 		networkPath := network.findPath(oldestMessage.FromReplicaID, oldestMessage.Message.ReplicaID)
-		if !networkPath.Reachable {
+		if networkPath.MakeReachableAfterTick > network.ticks {
 			network.sendMessageQueue.Push(oldestMessage)
 			return
 		}
